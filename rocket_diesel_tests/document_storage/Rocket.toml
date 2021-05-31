@@ -1,0 +1,2 @@
+[global.databases]
+diesel_demo = { url = "postgres://postgres:***@localhost/diesel_demo" }

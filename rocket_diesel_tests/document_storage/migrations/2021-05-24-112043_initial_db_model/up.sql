@@ -1,0 +1,21 @@
+CREATE TABLE app_user (
+  id SERIAL PRIMARY KEY,
+  username TEXT NOT NULL UNIQUE,
+  password TEXT NOT NULL
+);
+
+CREATE TABLE collection (
+  id SERIAL PRIMARY KEY,
+  owner INTEGER NOT NULL REFERENCES app_user ON DELETE CASCADE,
+  name TEXT NOT NULL
+);
+
+CREATE TABLE document (
+  id SERIAL PRIMARY KEY,
+  owner INTEGER NOT NULL REFERENCES app_user ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  filename TEXT NOT NULL,
+  
+  collection INTEGER NULL REFERENCES collection ON DELETE CASCADE,
+  document_type TEXT
+);

@@ -1,0 +1,49 @@
+{
+	"folders": [
+		{
+			"path": "variables"
+		},
+		{
+			"path": "guessing_game"
+		},
+		{
+			"path": "loops"
+		},
+		{
+			"path": "ownership"
+		},
+		{
+			"path": "slices"
+		},
+		{
+			"path": "structs"
+		},
+		{
+			"path": "rectangles"
+		},
+		{
+			"path": "enums"
+		},
+		{
+			"path": "modules"
+		},
+		{
+			"path": "collections"
+		},
+		{
+			"path": "errors"
+		},
+		{
+			"path": "generics"
+		},
+		{
+			"path": "lifetime"
+		},
+		{
+			"path": "tests"
+		},
+		{
+			"path": "minigrep"
+		}
+	]
+}
