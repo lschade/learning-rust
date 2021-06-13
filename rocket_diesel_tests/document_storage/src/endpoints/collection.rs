@@ -1,9 +1,7 @@
-use diesel::result::Error;
-
 use document_storage::models::collection::{Collection, CollectionNew, CollectionUpdate};
 use document_storage::models::user::User;
 use rocket::Route;
-use rocket_contrib::json::Json;
+use rocket::serde::json::Json;
 
 use document_storage::database::{ DbConn };
 use document_storage::repositories::collection_repo;
@@ -13,23 +11,45 @@ pub fn routes() -> Vec<Route> {
 }
 
 #[get("/")]
-fn get_all(db_conn: DbConn, user: User) -> Result<Json<Vec<Collection>>, Error> {
-    collection_repo::get_all(user.id, &db_conn).map(|x| Json(x))
+async fn get_all(db_conn: DbConn, user: User) -> Result<Json<Vec<Collection>>, String> {
+    db_conn.run(
+        move |c| { 
+            collection_repo::get_all(user.id, &c)
+                            .map(|x| Json(x))
+                            .map_err(|e| e.to_string()) 
+        }).await
 }
 
 #[get("/<id>")]
-fn get(id: i32, db_conn: DbConn) -> Result<Json<Collection>, Error> {
-    collection_repo::get(id, &db_conn).map(|x| Json(x))
+async fn get(id: i32, db_conn: DbConn) -> Result<Json<Collection>, String> {
+    db_conn.run(
+        move |c| { 
+            collection_repo::get(id, c)
+                            .map(|x| Json(x))
+                            .map_err(|e| e.to_string()) 
+        }).await
 }
 
 #[put("/<id>", data = "<update>")]
-fn update(db_conn: DbConn, id: i32, update: Json<CollectionUpdate>) -> Result<Json<Collection>, Error> {
+async fn update(db_conn: DbConn, id: i32, update: Json<CollectionUpdate>) -> Result<Json<Collection>, String> {
     let update = update.0;
-    collection_repo::update(id, update, &db_conn).map(|x| Json(x))
+    
+    db_conn.run(
+        move |c| { 
+            collection_repo::update(id, update, c)
+                            .map(|x| Json(x))
+                            .map_err(|e| e.to_string()) 
+        }).await
 }
 
 #[post("/", data = "<new_collection>")]
-fn create(new_collection: Json<CollectionNew>, db_conn: DbConn) -> Result<Json<Collection>, Error> {
+async fn create(new_collection: Json<CollectionNew>, db_conn: DbConn) -> Result<Json<Collection>, String> {
     let new_collection = new_collection.0;
-    collection_repo::create(new_collection, &db_conn).map(|x| Json(x))
+
+    db_conn.run(
+        move |c| { 
+            collection_repo::create(new_collection, c)
+                            .map(|x| Json(x))
+                            .map_err(|e| e.to_string()) 
+        }).await
 }

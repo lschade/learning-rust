@@ -1,12 +1,18 @@
 use diesel::pg::PgConnection;
 use crate::models::user::{ User, UserNew, UserUpdate };
 use crate::schema::app_user;
-use crate::diesel::{ QueryDsl, RunQueryDsl };
+use crate::diesel::{ QueryDsl, RunQueryDsl, ExpressionMethods };
+
+use bcrypt::{DEFAULT_COST, hash};
 
 use diesel::QueryResult;
 
 pub fn get(id: i32, db: &PgConnection) -> QueryResult<User> {
     app_user::table.find(id).get_result(db)
+}
+
+pub fn get_by_username(username: &str, db: &PgConnection) -> QueryResult<User> {
+    app_user::table.filter(app_user::username.eq(username)).get_result(db)
 }
 
 pub fn get_all(db: &PgConnection) -> QueryResult<Vec<User>> {

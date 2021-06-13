@@ -1,5 +1,5 @@
-#![feature(proc_macro_hygiene, decl_macro)]
-#[macro_use] extern crate rocket;
+#[macro_use] 
+extern crate rocket;
 
 mod endpoints;
 
@@ -14,13 +14,13 @@ fn index_user(user_maybe: Option<User>) -> String {
     }
 }
 
-fn main() {
-    rocket::ignite()
-        .manage(database::establish_connection())
+#[launch]
+fn rocket() -> _ {
+    rocket::build()
+        .attach(database::DbConn::fairing())
         .mount("/", routes![index_user])
         .mount("/user", user::routes())
         .mount("/documents", document::routes())
         .mount("/collections", collection::routes())
-        .launch();
 }
 

@@ -10,9 +10,11 @@ macro_rules! db_insert {
 
 #[macro_export]
 macro_rules! db_get_all {
-    ($conn:expr, $table:expr) => {
-        $table.get_results(&*$conn)
-            .map(|x| Json(x))
+    ($conn:expr, $repo:path, $user_id:expr) => {
+        $conn.run(
+            move |c| $repo::get_all($user_id, &c)
+                            .map(|x| Json(x)).await
+        )
     };
 }
 

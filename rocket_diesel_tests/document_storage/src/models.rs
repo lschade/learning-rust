@@ -11,16 +11,16 @@ pub mod user {
     
     #[derive(Insertable, Deserialize)]
     #[table_name="app_user"]
-    pub struct UserNew<'a> {
-        pub username: &'a str,
-        pub password: &'a str,
+    pub struct UserNew {
+        pub username: String,
+        pub password: String,
     }
     
     #[derive(AsChangeset, Deserialize)]
     #[table_name="app_user"]
-    pub struct UserUpdate<'a> {
-        pub username: Option<&'a str>,
-        pub password: Option<&'a str>,
+    pub struct UserUpdate {
+        pub username: Option<String>,
+        pub password: Option<String>,
     }
 }
 
@@ -93,36 +93,37 @@ pub enum RequestError {
 }
 
 use crate::schema::{ app_user };
-use rocket::request::{self, Request, FromRequest};
-use rocket::http::{ Status, RawStr };
-use rocket::State;
+use rocket::request::{ Request, FromRequest, Outcome };
+use rocket::http::{ Status };
 use crate::diesel::{ QueryDsl, ExpressionMethods, RunQueryDsl };
-use crate::database::PgPool;
+use crate::database::DbConn;
 
-impl<'a, 'r> FromRequest<'a, 'r> for user::User {
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for user::User {
     type Error = RequestError;
     
-    fn from_request(request: &'a Request<'r>) -> request::Outcome<Self, Self::Error> {
-        let pg_pool = request.guard::<State<PgPool>>().unwrap();
-        let db_conn = pg_pool.get().unwrap();
-
-        let user_id: Option<Result<i32, &RawStr>> = request.get_query_value("user");
-        
+    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        let user_id: Option<Result<i32, rocket::form::Errors>> = request.query_value("user");
+                
         match user_id {
-            None => rocket::Outcome::Failure((Status::BadRequest, RequestError::UserArgumentMissing)),
+            None => Outcome::Failure((Status::BadRequest, RequestError::UserArgumentMissing)),
             Some(x) => {
                 match x {
-                    Err(_) => rocket::Outcome::Failure((Status::BadRequest, RequestError::BadRequest)),
+                    Err(_) => Outcome::Failure((Status::BadRequest, RequestError::BadRequest)),
                     Ok(id) => {
-                        let query_result = app_user::table.filter(app_user::id.eq(id)).get_result(&db_conn);
-                        let query_result = query_result.map(|res| rocket::Outcome::Success(res));
+                        let db = request.guard::<DbConn>().await.unwrap();
 
-                        query_result.unwrap_or(rocket::Outcome::Failure((Status::BadRequest, RequestError::NotFound)))
-                    }   
+                        db.run(move |c| {
+                            let query_result = app_user::table.filter(app_user::id.eq(id)).get_result(c);
+
+                            match query_result {
+                                Ok(user) => Outcome::Success(user),
+                                Err(_) => Outcome::Failure((Status::NotFound, RequestError::NotFound))
+                            }
+                        }).await
+                    }
                 }
             }
         }
-
-
     }
 }
