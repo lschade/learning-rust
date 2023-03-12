@@ -44,6 +44,9 @@
 		},
 		{
 			"path": "minigrep"
+		},
+		{
+			"path": "axum"
 		}
 	]
 }
