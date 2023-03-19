@@ -4,6 +4,7 @@ mod params;
 mod custom_middleware;
 mod set_middleware_custom_header;
 mod teapot;
+mod response;
 
 use axum::{
     body::Body,
@@ -17,6 +18,7 @@ use params::path_variable;
 use custom_middleware::custom_middleware;
 use set_middleware_custom_header::read_custom_header;
 use teapot::im_a_teapot;
+use response::return_response;
 
 use self::params::query_params;
 
@@ -29,5 +31,6 @@ pub fn get_routes() -> Router<(), Body> {
         .route("/query", get(query_params))
         .route("/middleware", get(custom_middleware))
         .route("/teapot", get(im_a_teapot))
+        .route("/response", get(return_response))
         .route_layer(middleware::from_fn(read_custom_header))
 }
