@@ -11,15 +11,15 @@ pub async fn read_custom_header<B>(
     next: Next<B>,
 ) -> Result<Response, StatusCode> {
     let headers = request.headers();
-    let message = headers
+    let username = headers
         .get("username")
-        .ok_or_else(|| StatusCode::BAD_REQUEST)?
-        .to_owned();
-    let username = message.to_str().map_err(|_err| StatusCode::BAD_REQUEST)?;
+        .to_owned()
+        .map(|v| v.to_str().map(|s| s.to_owned()))
+        .and_then(|r| r.ok());
 
-    request.extensions_mut().insert(CustomMiddleWareData {
-        username: username.to_owned(),
-    });
+    request
+        .extensions_mut()
+        .insert(CustomMiddleWareData { username: username });
 
     Ok(next.run(request).await)
 }
