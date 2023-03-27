@@ -4,5 +4,3 @@ use learning_axum::run;
 async fn main() {
     run().await
 }
-
-
