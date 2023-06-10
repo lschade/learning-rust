@@ -1,36 +1,42 @@
 use std::collections::{HashMap, HashSet};
 
-pub fn get_sets(activities: Vec<String>, matrix: &HashMap<(String, String), Relation>) -> Vec<(HashSet<&&String>, HashSet<&&String>)> {
+pub fn get_sets<'a>(
+    activities: &'a Vec<String>,
+    matrix: &HashMap<(String, String), Relation>,
+) -> Vec<(HashSet<&'a String>, HashSet<&'a String>)> {
     let subsets = powerset(&activities);
 
-    let subsets: Vec<&Vec<&String>> = subsets
+    let subsets: Vec<Vec<&'a String>> = subsets
         .iter()
         .filter(|s| filter_rel(s.to_vec(), matrix))
         .filter(|s| filter_self_rel(s.to_vec(), matrix))
+        .map(|x| x.iter().map(|y| y.clone()).collect())
         .collect();
 
-    let mut eligible: Vec<(HashSet<&&String>, HashSet<&&String>)> = vec![];
+    let mut eligible: Vec<(HashSet<&'a String>, HashSet<&'a String>)> = vec![];
+
     for x in subsets.iter() {
         for y in subsets.iter() {
             if filter_set(x, y, matrix) {
-                eligible.push((HashSet::from_iter(x.iter().clone()), HashSet::from_iter(y.iter().clone())));
+                let aa = (
+                    HashSet::from_iter(x.iter().map(|e| e.clone())),
+                    HashSet::from_iter(y.iter().map(|e| e.clone())),
+                );
+                eligible.push(aa);
             }
         }
     }
 
-    for (i, (x,y)) in eligible.clone().iter().enumerate() {
-        for (x2, y2) in eligible.iter() {
-            if x.is_subset(x2) && y.is_subset(y2) {
-                eligible.remove(i);
-                break;
-            }
-        }
-    }
+    eligible.retain(|(x, y)| {
+        !eligible
+            .into_iter()
+            .any(|(x2, y2)| x.is_subset(&x2) && y.is_subset(&y2))
+    });
 
     return eligible;
 }
 
-fn powerset<T>(s: &[T]) -> Vec<Vec<&T>>
+fn powerset<'a, T>(s: &'a [T]) -> Vec<Vec<&'a T>>
 where
     T: Clone,
 {
@@ -45,12 +51,12 @@ where
         .collect()
 }
 
-fn filter_self_rel(s: Vec<&String>, matrix: &HashMap<(String, String), Relation>) -> bool {
+fn filter_self_rel<'a>(s: Vec<&'a String>, matrix: &HashMap<(String, String), Relation>) -> bool {
     s.iter()
         .all(|x| matrix[&(x.clone().clone(), x.clone().clone())] == Relation::Choice)
 }
 
-fn filter_rel(s: Vec<&String>, matrix: &HashMap<(String, String), Relation>) -> bool {
+fn filter_rel<'a>(s: Vec<&'a String>, matrix: &HashMap<(String, String), Relation>) -> bool {
     s.iter().all(|x| {
         s.iter()
             .all(|b| matrix[&(x.clone().clone(), b.clone().clone())] == Relation::Choice)
@@ -112,6 +118,15 @@ mod tests {
             (("E".to_owned(), "D".to_owned()), Relation::Follows),
         ]);
 
-        get_sets(vec!["A".to_owned().to_owned(), "B".to_owned().to_owned(), "C".to_owned().to_owned(), "D".to_owned().to_owned(), "E".to_owned().to_owned()], &     matrix);
+        let activities = vec![
+            "A".to_owned().to_owned(),
+            "B".to_owned().to_owned(),
+            "C".to_owned().to_owned(),
+            "D".to_owned().to_owned(),
+            "E".to_owned().to_owned(),
+        ];
+        let sets = get_sets(&activities, &matrix);
+
+        println!("{:?}", sets);
     }
 }
