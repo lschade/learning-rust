@@ -1,4 +1,10 @@
+mod model;
+
+use crate::model::{Event, Trace};
+use chrono::{Days, Utc};
+use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
+use std::ops::Add;
 
 pub fn get_sets<'a>(
     activities: Vec<&'a str>,
@@ -28,13 +34,13 @@ pub fn get_sets<'a>(
         .filter(|(x, y)| {
             !eligible
                 .iter()
-                .filter(|(a,b)| (a,b) != (x,y))
+                .filter(|(a, b)| (a, b) != (x, y))
                 .any(|(x2, y2)| x.is_subset(x2) && y.is_subset(y2))
         })
         .map(|e| e.clone())
         .collect();
 
-    return eligible;
+    eligible
 }
 
 fn powerset<T>(s: &[T]) -> Vec<Vec<T>>
@@ -53,34 +59,92 @@ where
 }
 
 fn filter_self_rel(s: Vec<&str>, matrix: &HashMap<(&str, &str), Relation>) -> bool {
-    s.iter()
-        .all(|x| matrix[&(*x, *x)] == Relation::Choice)
+    s.iter().all(|x| matrix[&(*x, *x)] == Relation::Choice)
 }
 
 fn filter_rel(s: Vec<&str>, matrix: &HashMap<(&str, &str), Relation>) -> bool {
-    s.iter().all(|x| {
-        s.iter()
-            .all(|b| matrix[&(*x, *b)] == Relation::Choice)
-    })
+    s.iter()
+        .all(|x| s.iter().all(|b| matrix[&(*x, *b)] == Relation::Choice))
 }
 
-fn filter_set(
-    x: &&Vec<&str>,
-    y: &&Vec<&str>,
-    matrix: &HashMap<(&str, &str), Relation>,
-) -> bool {
-    x.iter().all(|a| {
-        y.iter()
-            .all(|b| matrix[&(*a, *b)] == Relation::Follows)
-    })
+fn filter_set(x: &&Vec<&str>, y: &&Vec<&str>, matrix: &HashMap<(&str, &str), Relation>) -> bool {
+    x.iter()
+        .all(|a| y.iter().all(|b| matrix[&(*a, *b)] == Relation::Follows))
 }
 
-#[derive(PartialEq, Eq)]
+fn get_footprint_matrix<'a>(
+    traces: &'a Vec<Trace>,
+    activities: &Vec<&'a str>,
+) -> HashMap<(&'a str, &'a str), Relation> {
+    let mut matrix: HashMap<(&str, &str), Relation> = HashMap::new();
+
+    // every combination of activities is a choice
+    activities.iter().for_each(|a| {
+        activities.iter().for_each(|b| {
+            matrix.insert((a, b), Relation::Choice);
+        })
+    });
+
+    traces.iter().for_each(|trace| {
+        trace.events.windows(2).for_each(|w| {
+            let (a, b) = (w[0].activity.as_str(), w[1].activity.as_str());
+            let key = (a, b);
+            let key_reverse = (b.clone(), a.clone());
+
+            let x = matrix.get(&key).unwrap_or(&Relation::Choice);
+            let x = x + &Relation::Follows;
+            matrix.insert(key, x);
+
+            let x = matrix.get(&key_reverse).unwrap_or(&Relation::Choice);
+            let x = x + &Relation::Precedes;
+            matrix.insert(key_reverse, x);
+        })
+    });
+    matrix
+}
+
+fn get_activities(traces: &Vec<Trace>) -> Vec<&str> {
+    traces
+        .iter()
+        .flat_map(|trace| trace.events.iter().map(|event| event.activity.as_str()))
+        .unique()
+        .collect()
+}
+
+fn get_start_activities(traces: &Vec<Trace>) -> HashSet<&str> {
+    traces
+        .iter()
+        .map(|trace| trace.events.first().unwrap().activity.as_str())
+        .collect()
+}
+
+fn get_end_activities(traces: &Vec<Trace>) -> HashSet<&str> {
+    traces
+        .iter()
+        .map(|trace| trace.events.last().unwrap().activity.as_str())
+        .collect()
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Relation {
     Choice,
     Follows,
     Precedes,
     Parallel,
+}
+
+// implement Add for Relation where Choice + Choice = Choice and Follows + Follows = CaussalityLR and CaussalityRL + CausalityRL = CausalityRL and all other combinations are Parallel
+impl Add<&Relation> for &Relation {
+    type Output = Relation;
+
+    fn add(self, other: &Relation) -> Relation {
+        match (self, other) {
+            (Relation::Choice, x) => x.to_owned(),
+            (Relation::Follows, Relation::Follows) => Relation::Follows,
+            (Relation::Precedes, Relation::Precedes) => Relation::Precedes,
+            _ => Relation::Parallel,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -91,13 +155,7 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let activities: Vec<&str> = vec![
-            "A",
-            "B",
-            "C",
-            "D",
-            "E",
-        ];
+        let activities: Vec<&str> = vec!["A", "B", "C", "D", "E"];
         let matrix = HashMap::from([
             (("A", "A"), Relation::Choice),
             (("B", "B"), Relation::Choice),
@@ -129,5 +187,106 @@ mod tests {
         let sets = get_sets(activities, &matrix);
 
         println!("{:?}", sets)
+    }
+
+    #[test]
+    fn test_footprint_matrix() {
+        let traces = vec![
+            trace(vec!["A", "B", "C", "D"]),
+            trace(vec!["A", "C", "B", "D"]),
+            trace(vec!["A", "E", "D"]),
+        ];
+
+        let matrix = get_footprint_matrix(&traces, &get_activities(&traces));
+
+        println!("{:?}", matrix);
+
+        assert_eq!(matrix.len(), 5 * 5);
+        assert_eq!(matrix[&("A", "A")], Relation::Choice);
+        assert_eq!(matrix[&("B", "B")], Relation::Choice);
+        assert_eq!(matrix[&("C", "C")], Relation::Choice);
+        assert_eq!(matrix[&("D", "D")], Relation::Choice);
+        assert_eq!(matrix[&("E", "E")], Relation::Choice);
+
+        assert_eq!(matrix[&("A", "B")], Relation::Follows);
+        assert_eq!(matrix[&("A", "C")], Relation::Follows);
+        assert_eq!(matrix[&("A", "D")], Relation::Choice);
+        assert_eq!(matrix[&("A", "E")], Relation::Follows);
+
+        assert_eq!(matrix[&("B", "C")], Relation::Parallel);
+        assert_eq!(matrix[&("B", "D")], Relation::Follows);
+        assert_eq!(matrix[&("B", "E")], Relation::Choice);
+
+        assert_eq!(matrix[&("C", "D")], Relation::Follows);
+        assert_eq!(matrix[&("C", "E")], Relation::Choice);
+
+        assert_eq!(matrix[&("D", "E")], Relation::Precedes);
+    }
+
+    #[test]
+    fn test_find_sets() {
+        let traces = vec![
+            trace(vec!["A", "B", "C", "D"]),
+            trace(vec!["A", "C", "B", "D"]),
+            trace(vec!["A", "E", "D"]),
+        ];
+
+        let activities = get_activities(&traces);
+        let matrix = get_footprint_matrix(&traces, &activities);
+        let sets = get_sets(activities, &matrix);
+
+        assert!(sets.len() == 4);
+        assert!(sets.contains(&(
+            HashSet::from_iter(vec!["A"]),
+            HashSet::from_iter(vec!["B", "E"])
+        )));
+        assert!(sets.contains(&(
+            HashSet::from_iter(vec!["A"]),
+            HashSet::from_iter(vec!["C", "E"])
+        )));
+        assert!(sets.contains(&(
+            HashSet::from_iter(vec!["E", "B"]),
+            HashSet::from_iter(vec!["D"])
+        )));
+        assert!(sets.contains(&(
+            HashSet::from_iter(vec!["E", "C"]),
+            HashSet::from_iter(vec!["D"])
+        )));
+
+        assert!(sets.eq(&vec![
+            (
+                HashSet::from_iter(vec!["A"]),
+                HashSet::from_iter(vec!["B", "E"])
+            ),
+            (
+                HashSet::from_iter(vec!["A"]),
+                HashSet::from_iter(vec!["C", "E"])
+            ),
+            (
+                HashSet::from_iter(vec!["E", "B"]),
+                HashSet::from_iter(vec!["D"])
+            ),
+            (
+                HashSet::from_iter(vec!["E", "C"]),
+                HashSet::from_iter(vec!["D"])
+            ),
+        ]));
+    }
+}
+
+fn trace(activities: Vec<&str>) -> Trace {
+    let case_id = uuid::Uuid::new_v4();
+    let events = activities
+        .iter()
+        .enumerate()
+        .map(|(i, activity)| Event {
+            case_id: case_id.to_string(),
+            activity: activity.to_string(),
+            timestamp: Utc::now().add(Days::new(i as u64)),
+        })
+        .collect();
+    Trace {
+        case_id: case_id.to_string(),
+        events,
     }
 }

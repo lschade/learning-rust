@@ -22,7 +22,7 @@ fn main() {
     };
 
     println!("rect {:?} can hold rect2 {:?}: {}", rect, rect2, rect.can_hold(&rect2));
-    println!("square {:?}", Rectangle::square(10<));
+    println!("square {:?}", Rectangle::square(10));
 }
 
 fn area(rectangle: &Rectangle) -> u32 {
