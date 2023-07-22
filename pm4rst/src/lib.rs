@@ -1,42 +1,43 @@
 use std::collections::{HashMap, HashSet};
 
-pub fn get_sets<'a>(
-    activities: &'a Vec<String>,
-    matrix: &HashMap<(String, String), Relation>,
-) -> Vec<(HashSet<&'a String>, HashSet<&'a String>)> {
+pub fn get_sets(
+    activities: Vec<String>,
+    matrix: &HashMap<(&str, &str), Relation>,
+) -> Vec<(HashSet<String>, HashSet<String>)> {
     let subsets = powerset(&activities);
-
-    let subsets: Vec<Vec<&'a String>> = subsets
+    let subsets: Vec<&Vec<String>> = subsets
         .iter()
-        .filter(|s| filter_rel(s.to_vec(), matrix))
-        .filter(|s| filter_self_rel(s.to_vec(), matrix))
-        .map(|x| x.iter().map(|y| y.clone()).collect())
+        .filter(|s| filter_rel(s.to_vec(), &matrix))
+        .filter(|s| filter_self_rel(s.to_vec(), &matrix))
+        .filter(|s| !s.is_empty())
         .collect();
 
-    let mut eligible: Vec<(HashSet<&'a String>, HashSet<&'a String>)> = vec![];
-
+    let mut eligible: Vec<(HashSet<String>, HashSet<String>)> = vec![];
     for x in subsets.iter() {
         for y in subsets.iter() {
-            if filter_set(x, y, matrix) {
-                let aa = (
-                    HashSet::from_iter(x.iter().map(|e| e.clone())),
-                    HashSet::from_iter(y.iter().map(|e| e.clone())),
-                );
-                eligible.push(aa);
+            if filter_set(x, y, &matrix) {
+                let t1 = HashSet::from_iter(x.iter().map(|e| e.clone()));
+                let t2 = HashSet::from_iter(y.iter().map(|e| e.clone()));
+                eligible.push((t1, t2));
             }
         }
     }
 
-    eligible.retain(|(x, y)| {
-        !eligible
-            .into_iter()
-            .any(|(x2, y2)| x.is_subset(&x2) && y.is_subset(&y2))
-    });
+    let eligible: Vec<(HashSet<String>, HashSet<String>)> = eligible
+        .iter()
+        .filter(|(x, y)| {
+            !eligible
+                .iter()
+                .filter(|(a,b)| (a,b) != (x,y))
+                .any(|(x2, y2)| x.is_subset(x2) && y.is_subset(y2))
+        })
+        .map(|e| e.clone())
+        .collect();
 
     return eligible;
 }
 
-fn powerset<'a, T>(s: &'a [T]) -> Vec<Vec<&'a T>>
+fn powerset<T>(s: &[T]) -> Vec<Vec<T>>
 where
     T: Clone,
 {
@@ -45,32 +46,32 @@ where
             s.iter()
                 .enumerate()
                 .filter(|&(t, _)| (i >> t) % 2 == 1)
-                .map(|(_, element)| element)
+                .map(|(_, element)| element.clone())
                 .collect()
         })
         .collect()
 }
 
-fn filter_self_rel<'a>(s: Vec<&'a String>, matrix: &HashMap<(String, String), Relation>) -> bool {
+fn filter_self_rel(s: Vec<String>, matrix: &HashMap<(&str, &str), Relation>) -> bool {
     s.iter()
-        .all(|x| matrix[&(x.clone().clone(), x.clone().clone())] == Relation::Choice)
+        .all(|x| matrix[&(x.as_str(), x.as_str())] == Relation::Choice)
 }
 
-fn filter_rel<'a>(s: Vec<&'a String>, matrix: &HashMap<(String, String), Relation>) -> bool {
+fn filter_rel(s: Vec<String>, matrix: &HashMap<(&str, &str), Relation>) -> bool {
     s.iter().all(|x| {
         s.iter()
-            .all(|b| matrix[&(x.clone().clone(), b.clone().clone())] == Relation::Choice)
+            .all(|b| matrix[&(x.as_str(), b.as_str())] == Relation::Choice)
     })
 }
 
 fn filter_set(
-    x: &Vec<&String>,
-    y: &Vec<&String>,
-    matrix: &HashMap<(String, String), Relation>,
+    x: &&Vec<String>,
+    y: &&Vec<String>,
+    matrix: &HashMap<(&str, &str), Relation>,
 ) -> bool {
     x.iter().all(|a| {
         y.iter()
-            .all(|b| matrix[&(a.clone().clone(), b.clone().clone())] == Relation::Follows)
+            .all(|b| matrix[&(a.as_str(), b.as_str())] == Relation::Follows)
     })
 }
 
@@ -90,43 +91,43 @@ mod tests {
 
     #[test]
     fn it_works() {
+        let activities = vec![
+            "A".to_owned(),
+            "B".to_owned(),
+            "C".to_owned(),
+            "D".to_owned(),
+            "E".to_owned(),
+        ];
         let matrix = HashMap::from([
-            (("A".to_owned(), "A".to_owned()), Relation::Choice),
-            (("B".to_owned(), "B".to_owned()), Relation::Choice),
-            (("C".to_owned(), "C".to_owned()), Relation::Choice),
-            (("D".to_owned(), "D".to_owned()), Relation::Choice),
-            (("E".to_owned(), "E".to_owned()), Relation::Choice),
-            (("A".to_owned(), "B".to_owned()), Relation::Follows),
-            (("A".to_owned(), "C".to_owned()), Relation::Follows),
-            (("A".to_owned(), "D".to_owned()), Relation::Choice),
-            (("A".to_owned(), "E".to_owned()), Relation::Follows),
-            (("B".to_owned(), "A".to_owned()), Relation::Precedes),
-            (("B".to_owned(), "C".to_owned()), Relation::Parallel),
-            (("B".to_owned(), "D".to_owned()), Relation::Follows),
-            (("B".to_owned(), "E".to_owned()), Relation::Choice),
-            (("C".to_owned(), "A".to_owned()), Relation::Precedes),
-            (("C".to_owned(), "B".to_owned()), Relation::Parallel),
-            (("C".to_owned(), "D".to_owned()), Relation::Follows),
-            (("C".to_owned(), "E".to_owned()), Relation::Choice),
-            (("D".to_owned(), "A".to_owned()), Relation::Choice),
-            (("D".to_owned(), "B".to_owned()), Relation::Precedes),
-            (("D".to_owned(), "C".to_owned()), Relation::Precedes),
-            (("D".to_owned(), "E".to_owned()), Relation::Precedes),
-            (("E".to_owned(), "A".to_owned()), Relation::Precedes),
-            (("E".to_owned(), "B".to_owned()), Relation::Choice),
-            (("E".to_owned(), "C".to_owned()), Relation::Choice),
-            (("E".to_owned(), "D".to_owned()), Relation::Follows),
+            (("A", "A"), Relation::Choice),
+            (("B", "B"), Relation::Choice),
+            (("C", "C"), Relation::Choice),
+            (("D", "D"), Relation::Choice),
+            (("E", "E"), Relation::Choice),
+            (("A", "B"), Relation::Follows),
+            (("A", "C"), Relation::Follows),
+            (("A", "D"), Relation::Choice),
+            (("A", "E"), Relation::Follows),
+            (("B", "A"), Relation::Precedes),
+            (("B", "C"), Relation::Parallel),
+            (("B", "D"), Relation::Follows),
+            (("B", "E"), Relation::Choice),
+            (("C", "A"), Relation::Precedes),
+            (("C", "B"), Relation::Parallel),
+            (("C", "D"), Relation::Follows),
+            (("C", "E"), Relation::Choice),
+            (("D", "A"), Relation::Choice),
+            (("D", "B"), Relation::Precedes),
+            (("D", "C"), Relation::Precedes),
+            (("D", "E"), Relation::Precedes),
+            (("E", "A"), Relation::Precedes),
+            (("E", "B"), Relation::Choice),
+            (("E", "C"), Relation::Choice),
+            (("E", "D"), Relation::Follows),
         ]);
 
-        let activities = vec![
-            "A".to_owned().to_owned(),
-            "B".to_owned().to_owned(),
-            "C".to_owned().to_owned(),
-            "D".to_owned().to_owned(),
-            "E".to_owned().to_owned(),
-        ];
-        let sets = get_sets(&activities, &matrix);
+        let sets = get_sets(activities, &matrix);
 
-        println!("{:?}", sets);
+        println!("{:?}", sets)
     }
 }
