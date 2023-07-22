@@ -1,18 +1,18 @@
 use std::collections::{HashMap, HashSet};
 
-pub fn get_sets(
-    activities: Vec<String>,
+pub fn get_sets<'a>(
+    activities: Vec<&'a str>,
     matrix: &HashMap<(&str, &str), Relation>,
-) -> Vec<(HashSet<String>, HashSet<String>)> {
+) -> Vec<(HashSet<&'a str>, HashSet<&'a str>)> {
     let subsets = powerset(&activities);
-    let subsets: Vec<&Vec<String>> = subsets
+    let subsets: Vec<&Vec<&str>> = subsets
         .iter()
         .filter(|s| filter_rel(s.to_vec(), &matrix))
         .filter(|s| filter_self_rel(s.to_vec(), &matrix))
         .filter(|s| !s.is_empty())
         .collect();
 
-    let mut eligible: Vec<(HashSet<String>, HashSet<String>)> = vec![];
+    let mut eligible: Vec<(HashSet<&str>, HashSet<&str>)> = vec![];
     for x in subsets.iter() {
         for y in subsets.iter() {
             if filter_set(x, y, &matrix) {
@@ -23,7 +23,7 @@ pub fn get_sets(
         }
     }
 
-    let eligible: Vec<(HashSet<String>, HashSet<String>)> = eligible
+    let eligible: Vec<(HashSet<&str>, HashSet<&str>)> = eligible
         .iter()
         .filter(|(x, y)| {
             !eligible
@@ -52,26 +52,26 @@ where
         .collect()
 }
 
-fn filter_self_rel(s: Vec<String>, matrix: &HashMap<(&str, &str), Relation>) -> bool {
+fn filter_self_rel(s: Vec<&str>, matrix: &HashMap<(&str, &str), Relation>) -> bool {
     s.iter()
-        .all(|x| matrix[&(x.as_str(), x.as_str())] == Relation::Choice)
+        .all(|x| matrix[&(*x, *x)] == Relation::Choice)
 }
 
-fn filter_rel(s: Vec<String>, matrix: &HashMap<(&str, &str), Relation>) -> bool {
+fn filter_rel(s: Vec<&str>, matrix: &HashMap<(&str, &str), Relation>) -> bool {
     s.iter().all(|x| {
         s.iter()
-            .all(|b| matrix[&(x.as_str(), b.as_str())] == Relation::Choice)
+            .all(|b| matrix[&(*x, *b)] == Relation::Choice)
     })
 }
 
 fn filter_set(
-    x: &&Vec<String>,
-    y: &&Vec<String>,
+    x: &&Vec<&str>,
+    y: &&Vec<&str>,
     matrix: &HashMap<(&str, &str), Relation>,
 ) -> bool {
     x.iter().all(|a| {
         y.iter()
-            .all(|b| matrix[&(a.as_str(), b.as_str())] == Relation::Follows)
+            .all(|b| matrix[&(*a, *b)] == Relation::Follows)
     })
 }
 
@@ -91,12 +91,12 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let activities = vec![
-            "A".to_owned(),
-            "B".to_owned(),
-            "C".to_owned(),
-            "D".to_owned(),
-            "E".to_owned(),
+        let activities: Vec<&str> = vec![
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",
         ];
         let matrix = HashMap::from([
             (("A", "A"), Relation::Choice),
