@@ -6,8 +6,71 @@ use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::ops::Add;
 
+use netcrab::petri_net::{PetriNet, TransitionRef};
+
+pub fn find_net(traces: &Vec<Trace>) -> PetriNet {
+    let activities = get_activities(traces);
+    let matrix = get_footprint_matrix(traces, &activities);
+    let sets = get_sets(&activities, &matrix);
+
+    let start_activities = get_start_activities(traces);
+    let end_activities = get_end_activities(traces);
+
+    let mut net = PetriNet::new();
+
+    let transitions: HashMap<&str, TransitionRef> = activities
+        .iter()
+        .map(|a| (*a, net.add_transition(a)))
+        .collect();
+
+    let mut i = 0;
+    start_activities.iter().for_each(|a| {
+        let p_label = format!("p_s_{}", i);
+        i += 1;
+
+        let place = net.add_place(p_label.as_str());
+        net.add_token(&place, 1).unwrap();
+
+        let transition = &transitions[a];
+        let result = net.add_arc_place_transition(&place, transition);
+        assert!(result.is_ok());
+    });
+
+    let mut i = 0;
+    end_activities.iter().for_each(|a| {
+        let p_label = format!("p_e_{}", i);
+        i += 1;
+
+        let place = net.add_place(p_label.as_str());
+        let transition = &transitions[a];
+        let result = net.add_arc_transition_place(transition, &place);
+        assert!(result.is_ok());
+    });
+    
+    let mut i = 0;
+    sets.iter().for_each(|(x, y)| {
+        let p_label = format!("p_{}", i);
+        let place: netcrab::petri_net::PlaceRef = net.add_place(p_label.as_str());
+        i += 1;
+
+        x.iter().for_each(|a| {
+            let transition = &transitions[a];
+            let result = net.add_arc_transition_place(transition, &place);
+            assert!(result.is_ok());
+        });
+
+        y.iter().for_each(|a| {
+            let transition = &transitions[a];
+            let result = net.add_arc_place_transition(&place, transition);
+            assert!(result.is_ok());
+        });
+    });
+
+    net
+}
+
 pub fn get_sets<'a>(
-    activities: Vec<&'a str>,
+    activities: &Vec<&'a str>,
     matrix: &HashMap<(&str, &str), Relation>,
 ) -> Vec<(HashSet<&'a str>, HashSet<&'a str>)> {
     let subsets = powerset(&activities);
@@ -184,7 +247,7 @@ mod tests {
             (("E", "D"), Relation::Follows),
         ]);
 
-        let sets = get_sets(activities, &matrix);
+        let sets = get_sets(&activities, &matrix);
 
         println!("{:?}", sets)
     }
@@ -233,7 +296,7 @@ mod tests {
 
         let activities = get_activities(&traces);
         let matrix = get_footprint_matrix(&traces, &activities);
-        let sets = get_sets(activities, &matrix);
+        let sets = get_sets(&activities, &matrix);
 
         assert!(sets.len() == 4);
         assert!(sets.contains(&(
@@ -253,24 +316,21 @@ mod tests {
             HashSet::from_iter(vec!["D"])
         )));
 
-        assert!(sets.eq(&vec![
-            (
-                HashSet::from_iter(vec!["A"]),
-                HashSet::from_iter(vec!["B", "E"])
-            ),
-            (
-                HashSet::from_iter(vec!["A"]),
-                HashSet::from_iter(vec!["C", "E"])
-            ),
-            (
-                HashSet::from_iter(vec!["E", "B"]),
-                HashSet::from_iter(vec!["D"])
-            ),
-            (
-                HashSet::from_iter(vec!["E", "C"]),
-                HashSet::from_iter(vec!["D"])
-            ),
-        ]));
+        println!("{:?}", sets);
+    }
+
+    #[test]
+    fn test_find_net() {
+        let traces = vec![
+            trace(vec!["A", "B", "C", "D"]),
+            trace(vec!["A", "C", "B", "D"]),
+            trace(vec!["A", "E", "D"]),
+        ];
+
+        let net = find_net(&traces);
+        
+        let dot_string = net.to_dot_string();
+        println!("{}", dot_string.unwrap());
     }
 }
 
