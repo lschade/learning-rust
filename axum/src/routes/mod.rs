@@ -6,6 +6,7 @@ mod set_middleware_custom_header;
 mod string_body;
 mod teapot;
 mod database;
+mod sqlx_db;
 
 use axum::{
     body::Body,
@@ -22,6 +23,7 @@ use string_body::json_body;
 use string_body::string_body;
 use teapot::im_a_teapot;
 use database::{create_event, get_events};
+use sqlx_db::get_events as get_events_sqlx;
 
 use crate::AppState;
 
@@ -39,6 +41,7 @@ pub fn get_routes(state: AppState) -> Router<(), Body> {
         .route("/response", get(return_response))
         .route("/event", post(create_event))
         .route("/event", get(get_events))
+        .route("/event-sqlx", get(get_events_sqlx))
         .route("/event/:id", get(get_event))
         .route_layer(middleware::from_fn(read_custom_header))
         .with_state(state)
