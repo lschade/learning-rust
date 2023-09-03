@@ -1,27 +1,34 @@
-use axum::{extract::State, Json};
-use entity::event;
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    Json,
+};
 
-use crate::AppState;
+use crate::{
+    db::models::{Event, EventEgg},
+    AppState,
+};
 
-pub async fn get_events(State(state): State<AppState>) -> Json<Vec<event::Model>> {
-    sqlx::query!("SELECT * FROM event")
-        .fetch_all(&state.sqlx_pool)
-        .await
-        .map(|rows| {
-            rows.into_iter()
-                .map(|row| event::Model {
-                    id: row.id.try_into().unwrap(),
-                    activity: row.activity,
-                    start_date: row.start_date,
-                    end_date: row.end_date,
-                    location: row.location,
-                })
-                .collect::<Vec<_>>()
-        })
-        .map_err(|e| {
-            println!("Error: {}", e);
-            e
-        })
-        .unwrap()
-        .into()
+pub async fn get_events(State(state): State<AppState>) -> Json<Vec<Event>> {
+    let events = state.event_dao.list().await.unwrap();
+    Json(events)
+}
+
+pub async fn get_event(
+    State(state): State<AppState>,
+    Path(id): Path<u32>,
+) -> Result<Json<Event>, StatusCode> {
+    let event = state.event_dao.get(id).await;
+    event
+        .map(Json)
+        .map(Ok)
+        .unwrap_or(Err(StatusCode::NOT_FOUND))
+}
+
+pub async fn create_event(
+    State(state): State<AppState>,
+    Json(event): Json<EventEgg>,
+) -> Json<String> {
+    let id = state.event_dao.create(&event).await.unwrap();
+    Json(format!("Created event with id {}", id))
 }
