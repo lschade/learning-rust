@@ -21,9 +21,9 @@ impl EventDao {
             .await
     }
 
-    pub async fn create(&self, event: &EventEgg) -> Result<i64, sqlx::Error> {
-        let result = sqlx::query!(
-            "INSERT INTO event (activity, start_date, end_date,  location) VALUES (?, ?, ?, ?) RETURNING id",
+    pub async fn create(&self, event: &EventEgg) -> Result<Event, sqlx::Error> {
+        let result = sqlx::query_as!(Event,
+            "INSERT INTO event (activity, start_date, end_date,  location) VALUES (?, ?, ?, ?) RETURNING *",
             event.activity,
             event.start_date,
             event.end_date,
@@ -32,6 +32,20 @@ impl EventDao {
         .fetch_one(&self.pool)
         .await?;
 
-        Ok(result.id)
+        Ok(result)
+    }
+
+    pub async fn delete(&self, id: u32) -> Result<(), sqlx::Error> {
+        sqlx::query!("DELETE FROM event WHERE `id` = ?", id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_activities(&self) -> Result<Vec<String>, sqlx::Error> {
+        sqlx::query_scalar!("SELECT DISTINCT activity FROM event")
+            .fetch_all(&self.pool)
+            .await
     }
 }

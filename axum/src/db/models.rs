@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqliteRow, FromRow, Row};
 
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Event {
     pub id: i64,
     pub activity: String,
@@ -11,6 +12,7 @@ pub struct Event {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct EventEgg {
     pub activity: String,
     pub start_date: i64,

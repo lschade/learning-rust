@@ -10,8 +10,9 @@ mod teapot;
 
 use axum::{
     body::Body,
+    http::Method,
     middleware,
-    routing::{get, post},
+    routing::{delete, get, post},
     Router,
 };
 use custom_middleware::custom_middleware;
@@ -23,12 +24,18 @@ use set_middleware_custom_header::read_custom_header;
 use string_body::json_body;
 use string_body::string_body;
 use teapot::im_a_teapot;
+use tower_http::cors::{Any, CorsLayer};
 
 use crate::AppState;
 
-use self::{database::get_event, params::query_params};
+use self::{database::get_event, params::query_params, sqlx_db::delete_event};
 
 pub fn get_routes(state: AppState) -> Router<(), Body> {
+    let cors = CorsLayer::new()
+        .allow_methods(vec![Method::GET, Method::POST, Method::DELETE])
+        .allow_headers(Any)
+        .allow_origin(Any);
+
     Router::new()
         .route("/", get(hello_world))
         .route("/string", post(string_body))
@@ -44,8 +51,9 @@ pub fn get_routes(state: AppState) -> Router<(), Body> {
         .route("/event-sqlx/:id", get(sqlx_db::get_event))
         .route("/event-sqlx", post(sqlx_db::create_event))
         .route("/event/:id", get(get_event))
+        .route("/event-sqlx/:id", delete(delete_event))
+        .route("/activities", get(sqlx_db::get_activities))
         .route_layer(middleware::from_fn(read_custom_header))
         .with_state(state)
+        .layer(cors)
 }
-
-// what is wrong with create_event?

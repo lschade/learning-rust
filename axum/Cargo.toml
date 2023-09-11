@@ -16,5 +16,6 @@ tokio = { version = "1.26.0", features = ["macros", "rt-multi-thread"] }
 sqlx = { version = "0.7", features = [ "runtime-tokio", "sqlite" ] }
 entity = { path = "entity" }
 migration = { path = "migration" } 
+tower-http = { version = "0.4.4", features = [ "cors" ] }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
