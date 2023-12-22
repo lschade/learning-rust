@@ -1,4 +1,4 @@
-use super::models::{Event, EventEgg, PlannedEvent, PlannedEventEgg}; 
+use super::models::{Event, EventEgg, PlannedEvent, PlannedEventEgg};
 
 pub struct PlannedEventDao {
     pub pool: sqlx::SqlitePool,
@@ -107,7 +107,7 @@ impl PlannedEventDao {
             PlannedEvent,
             r#"UPDATE planned_event SET completed = True, event_id = ? WHERE id = ? 
             RETURNING id as "id!", project_id as "project_id!", case_id as "case_id!", activity, description, earliest_start_date, due_date, completed, event_id"#,
-            new_event.id, 
+            new_event.id,
             planned_event.id
         )
         .fetch_one(&mut *transaction)

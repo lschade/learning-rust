@@ -47,11 +47,11 @@ impl ProjectDao {
             r#"UPDATE project SET name = ?, description = ? WHERE id = ? RETURNING id as "id!", name, description"#,
             project.name,
             project.description,
-            project.id  
+            project.id,
         )
         .fetch_one(&self.pool)
         .await?;
- 
+
         Ok(result)
     }
 }

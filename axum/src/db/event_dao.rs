@@ -12,7 +12,7 @@ impl EventDao {
     pub async fn list(&self) -> Result<Vec<Event>, sqlx::Error> {
         sqlx::query_as!(Event, "SELECT * FROM event")
             .fetch_all(&self.pool)
-            .await 
+            .await
     }
 
     pub async fn list_by_case(&self, case_id: u32) -> Result<Vec<Event>, sqlx::Error> {
@@ -35,7 +35,7 @@ impl EventDao {
             event.activity,
             event.start_date,
             event.end_date,
-            event.location, 
+            event.location,
         )
         .fetch_one(&self.pool)
         .await?;
@@ -58,9 +58,12 @@ impl EventDao {
     }
 
     pub async fn get_depends_on(&self, event_id: u32) -> Result<Vec<i64>, sqlx::Error> {
-        sqlx::query_scalar!("SELECT DISTINCT dependency_id FROM event_dependency WHERE `event_id` = ?", event_id)
-            .fetch_all(&self.pool)
-            .await
+        sqlx::query_scalar!(
+            "SELECT DISTINCT dependency_id FROM event_dependency WHERE `event_id` = ?",
+            event_id
+        )
+        .fetch_all(&self.pool)
+        .await
     }
 
     pub async fn get_dependencies(&self, event_id: u32) -> Result<Vec<Event>, sqlx::Error> {
@@ -69,10 +72,18 @@ impl EventDao {
             .await
     }
 
-    pub async fn create_dependency(&self, event_id: u32, dependency_id: i64) -> Result<(), sqlx::Error> {
-        sqlx::query!("INSERT INTO event_dependency (event_id, dependency_id) VALUES (?, ?)", event_id, dependency_id)
-            .execute(&self.pool)
-            .await?;
+    pub async fn create_dependency(
+        &self,
+        event_id: u32,
+        dependency_id: i64,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query!(
+            "INSERT INTO event_dependency (event_id, dependency_id) VALUES (?, ?)",
+            event_id,
+            dependency_id
+        )
+        .execute(&self.pool)
+        .await?;
 
         Ok(())
     }

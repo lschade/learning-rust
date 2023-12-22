@@ -1,14 +1,13 @@
 use axum::Json;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 pub async fn string_body(body: String) -> String {
     body
 }
 
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TestBody {
-    content: String
+    content: String,
 }
 
 pub async fn json_body(body: Json<TestBody>) -> String {
